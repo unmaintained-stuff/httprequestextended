@@ -24,6 +24,7 @@
  * Provide methods to handle HTTP 1.1 requests. This class uses some functions of
  * Drupal's HTTP request class that you can find on http://drupal.org.
  * Based upon the TL core Request class by Leo Feyer <leo@typolight.org>
+ * Proxy functionality is heavily influenced by code from Jörg Kleuver.
  * This class tries to implement almost the complete RFC 2616 on raw fsockopen.
  * @copyright  Christian Schiffler 2009
  * @author     Christian Schiffler <c.schiffler@cyberspectrum.de>
@@ -277,6 +278,17 @@ class RequestExtended
 	 */
 	protected $arrResponseHeaders = array();
 
+	/**
+	 * Proxy settings
+	 * @var array
+	 */
+	protected $arrProxy = array
+	(
+		'proxyhost'    => '',
+		'proxyport'    => 8080,
+		'proxyuser'    => '',
+		'proxypass'    => ''
+	);
 
 	/**
 	 * Set default values
@@ -346,6 +358,13 @@ class RequestExtended
 			// TODO: encoding for sending is not working yet.
 			case 'usecontentencoding':
 				//$this->strUseContentEncoding = $varValue;
+				break;
+
+			case 'proxyhost':
+			case 'proxyport':
+			case 'proxyuser':
+			case 'proxypass':
+				$this->arrProxy[$strKey] = $varValue;
 				break;
 
 			default:
@@ -529,14 +548,11 @@ class RequestExtended
 	protected function encodeGzip(&$strData)
 	{
 		$gzip_contents = gzcompress($strData, 1);
-//		var_dump($gzip_contents);
 		return $gzip_contents;
 		$gzip_size = strlen($strData);
 		$gzip_crc = crc32($strData);
 		$gzip_contents = gzcompress($strData, 9);
 		$gzip_contents = substr($gzip_contents, 0, -4);
-//		var_dump($strData);
-//		var_dump($gzip_contents);
 		// return magic-number + header(filedate etc.) + crc + size
 		return "\x1f\x8b\x08\x00\x00\x00\x00\x00" . $gzip_contents . pack('V', $gzip_crc) . pack('V', $gzip_size);
 	}
@@ -544,7 +560,6 @@ class RequestExtended
 	protected function encodeDeflate(&$strData)
 	{
 		$gzip_contents = gzencode($strData, 1);
-//		var_dump($gzip_contents);
 		return $gzip_contents;
 	}
 
@@ -582,43 +597,114 @@ class RequestExtended
 		return $strData;
 	}
 
-	/**
-	 * Connect to the webserver defined in the URI.
-	 * @return boolean
-	 */
-	protected function connect()
+	protected function openSocket($host, $port)
 	{
-		// TODO: add proxy support here.
-		switch ($this->arrUri['scheme'])
-		{
-			case 'http':
-				if(!isset($this->arrUri['port']))
-					$this->arrUri['port']=80;
-				$this->arrUri['addport'] = ($this->arrUri['port'] != 80);
-				$this->socket = @fsockopen($this->arrUri['host'], $this->arrUri['port'], $errno, $errstr, 10);
-				break;
-
-			case 'https':
-				if(!isset($this->arrUri['port']))
-					$this->arrUri['port']=443;
-				$this->arrUri['addport'] = ($this->arrUri['port'] != 443);
-				$this->socket = @fsockopen('ssl://' . $this->arrUri['host'], $this->arrUri['port'], $errno, $errstr, 15);
-				break;
-
-			default:
-				$this->intCode = -1;
-				$this->strError = 'Invalid schema ' . $this->arrUri['scheme'];
-				return false;
-				break;
-		}
-
+		$this->socket = @fsockopen($host, $port, $errno, $errstr, 10);
 		if (!is_resource($this->socket))
 		{
 			$this->intCode = $errno;
 			$this->strError = trim($errno .' '. $errstr);
 			return false;
 		}
-		return true;
+		return $this->socket;
+	}
+
+	/**
+	 * Connect to the webserver defined in the URI.
+	 * @return boolean
+	 */
+	protected function connect()
+	{
+		switch ($this->arrUri['scheme'])
+		{
+			case 'http':
+				if(!isset($this->arrUri['port']))
+					$this->arrUri['port']=80;
+				$this->arrUri['addport'] = ($this->arrUri['port'] != 80);
+				$host=$this->arrUri['host'];
+				$port=$this->arrUri['port'];
+				break;
+			case 'https':
+				if(!isset($this->arrUri['port']))
+					$this->arrUri['port']=443;
+				$this->arrUri['addport'] = ($this->arrUri['port'] != 443);
+				$host='ssl://' . $this->arrUri['host'];
+				$port=$this->arrUri['port'];
+				break;
+			default:
+				$this->intCode = -1;
+				$this->strError = 'Invalid schema ' . $this->arrUri['scheme'];
+				return false;
+				break;
+		}
+		// Do we want to connect via a proxy or directly?
+		if ($this->arrProxy['proxyhost'])
+		{
+			// connect via proxy.
+			$this->socket = $this->openSocket($this->arrProxy['proxyhost'], $this->arrProxy['proxyport']);
+			// proxy-auth
+			if ($this->arrProxy['proxyuser'] && !isset($this->arrHeaders['Proxy-Authorization']))
+			{
+				$this->arrHeaders['Proxy-Authorization'] = 'Basic '.base64_encode ($this->arrProxy['proxyuser'] . ':' . $this->arrProxy['proxypass']);
+			}
+			// perform CONNECT with the proxy if https
+			if ($this->arrUri['scheme'] == 'https') {
+				try 
+				{
+					$request = sprintf('CONNECT %s:%s HTTP/1.1%sHost: %s%s', $host, $port, "\r\n", $this->arrProxy['proxyhost'], "\r\n");
+					if (isset($strUserAgent['User-Agent']))
+						$request .= 'User-Agent: ' . $this->strUserAgent . "\r\n";
+					// If the proxy-authorization header is set, send it to proxy but remove it from headers sent to target host
+					if (isset($this->arrHeaders['Proxy-Authorization'])) {
+						$request .= 'Proxy-Authorization: ' . $this->arrHeaders['Proxy-Authorization'] . "\r\n";
+						unset($this->arrHeaders['Proxy-Authorization']);
+					}
+					$request .= "\r\n";
+					// Send the request
+					if (!@fwrite($this->socket, $request))
+					{
+						throw new Exception("Error writing request to proxy server");
+					}
+					// Read response headers only
+					$response = '';
+					$gotStatus = false;
+					while ($line = @fgets($this->socket))
+					{
+						$gotStatus = $gotStatus || (strpos($line, 'HTTP') !== false);
+						if ($gotStatus)
+						{
+							$response .= $line;
+							if(!chop($line))break;
+						}
+					}
+					// Check that the response from the proxy is 200
+					if (substr($response, 9, 3) != 200) {
+						throw new Exception("Unable to connect to HTTPS proxy. Server response: " . $response);
+					}
+					// If all is good, switch socket to secure mode. We have to fall back through the different modes 
+					$success = false; 
+					foreach(array(STREAM_CRYPTO_METHOD_TLS_CLIENT, STREAM_CRYPTO_METHOD_SSLv3_CLIENT, 
+								  STREAM_CRYPTO_METHOD_SSLv23_CLIENT,STREAM_CRYPTO_METHOD_SSLv2_CLIENT) as $mode)
+					{
+						if ($success=stream_socket_enable_crypto($this->socket, true, $mode)) break;
+					}
+					if (!$success)
+					{
+						throw new Exception("Unable to connect to HTTPS server through proxy: could not negotiate secure connection.");
+					}
+				}
+				catch (Exception $e)
+				{
+					// Close socket
+					$this->disconnect();
+					$this->strError = $e->getMessage();
+				}
+			}
+		} else {
+			// no proxy needed
+			$this->socket = $this->openSocket($host, $port);
+		}
+		return (is_resource($this->socket)) ? true : false;
 	}
 
 	/**
@@ -658,6 +744,7 @@ class RequestExtended
 				Would be nice to have to prevent issues like we already had with twitter reader which brought 
 				whole TL installations down when twitter WebService was down.
 			*/
+			$data = '';
 			// read header.
 			while (!feof($this->socket) && ($chunk = fread($this->socket, 1024)) != false)
 			{
@@ -690,6 +777,21 @@ class RequestExtended
 	}
 
 	/**
+	 * Compile the arrUri to an URL again
+	 */
+	protected function combineUri()
+	{
+		return	(isset($this->arrUri['scheme'])?$this->arrUri['scheme'].'://':'').
+				(isset($this->arrUri['user'])?$this->arrUri['user'].':':'').
+				(isset($this->arrUri['pass'])?$this->arrUri['pass'].'@':'').
+				(isset($this->arrUri['host'])?$this->arrUri['host']:'').
+				(isset($this->arrUri['port'])?':'.$this->arrUri['port']:'').
+				(isset($this->arrUri['path'])?$this->arrUri['path']:'').
+				(isset($this->arrUri['query'])?'?'.$this->arrUri['query']:'').
+				(isset($this->arrUri['fragment'])?'#'.$this->arrUri['fragment']:'');
+	}
+
+	/**
 	 * Prepares the complete request data. Method, add headers and add POST data (if any).
 	 * @param string
 	 */
@@ -703,8 +805,10 @@ class RequestExtended
 			// remove any ampersand as we can not use it in a valid HTTP Query.
 			$this->arrUri['fullpath'] .= '?' . str_replace('&amp;', '&', $this->arrUri['query']);
 		}
-		
-		$request = strtoupper($this->strMethod) .' '. $this->arrUri['fullpath'] ." HTTP/" . $this->strHttpVersion . "\r\n";
+		if ($this->arrProxy['proxyhost'] && $this->arrUri['scheme'] != 'https')
+			$request = strtoupper($this->strMethod) .' '. $this->combineUri() .' HTTP/' . $this->strHttpVersion . "\r\n";
+		else
+			$request = strtoupper($this->strMethod) .' '. $this->arrUri['fullpath'] .' HTTP/' . $this->strHttpVersion . "\r\n";
 		$request .= implode("\r\n", $this->compileHeaders());
 		$request .= "\r\n\r\n";
 
@@ -776,8 +880,7 @@ class RequestExtended
 		{
 			if(!$this->checkCookie($cookie))
 			{
-				var_dump('REJECT!');
-				var_dump($cookie);
+				continue;
 			}
 			$tmp='Cookie: '.$cookie['name'].'='.$cookie['value'] . '; $version='.(isset($cookie['version']) ? $cookie['version'] : '1');
 			foreach($cookie as $key=>$value)
@@ -794,13 +897,13 @@ class RequestExtended
 	 */
 	protected function compileHeaders()
 	{
-		$headers = array
-		(
-			'Host' => 'Host: ' . ($this->isIP6($this->arrUri['host']) ? '[' . $this->arrUri['host'] . ']' : $this->arrUri['host']) . ($this->arrUri['addport'] ? ':' . $this->arrUri['port'] : ''),
-			'User-Agent' => 'User-Agent: ' . $this->strUserAgent,
-			// TODO: do we want to add support for keep-alive?
-			'Connection' => 'Connection: close'
-		);
+		if ($this->arrProxy['proxyhost'] && $this->arrUri['scheme'] != 'https')
+			$headers = array('Host' => 'Host: ' . ($this->isIP6($this->arrUri['host']) ? '[' . $this->arrUri['host'] . ']' : $this->arrUri['host']) . ($this->arrUri['addport'] ? ':' . $this->arrUri['port'] : ''));
+		else
+			$headers = array();
+		$headers['User-Agent'] = 'User-Agent: ' . $this->strUserAgent;
+		// TODO: do we want to add support for keep-alive?
+		$headers['Connection'] = 'Connection: close';
 
 		$encodings=array();
 		foreach($this->arrAcceptEncoding as $name=>$enabled)
@@ -887,9 +990,9 @@ class RequestExtended
 		{
 			$this->processHeaderLine($header, trim($value));
 		}
-		if($this->arrResponseHeaders['Transfer-Encoding'])
+		if(array_key_exists('Transfer-Encoding', $this->arrResponseHeaders) && $this->arrResponseHeaders['Transfer-Encoding'])
 			$this->decodeResponse($this->arrResponseHeaders['Transfer-Encoding']);
-		if($this->arrResponseHeaders['Content-Encoding'])
+		if(array_key_exists('Content-Encoding', $this->arrResponseHeaders) && $this->arrResponseHeaders['Content-Encoding'])
 			$this->decodeResponse($this->arrResponseHeaders['Content-Encoding']);
 		
 		$this->intCode = $code;
