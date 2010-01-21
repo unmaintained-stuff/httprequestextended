@@ -898,9 +898,9 @@ class RequestExtended
 	protected function compileHeaders()
 	{
 		if ($this->arrProxy['proxyhost'] && $this->arrUri['scheme'] != 'https')
-			$headers = array('Host' => 'Host: ' . ($this->isIP6($this->arrUri['host']) ? '[' . $this->arrUri['host'] . ']' : $this->arrUri['host']) . ($this->arrUri['addport'] ? ':' . $this->arrUri['port'] : ''));
-		else
 			$headers = array();
+		else
+			$headers = array('Host' => 'Host: ' . ($this->isIP6($this->arrUri['host']) ? '[' . $this->arrUri['host'] . ']' : $this->arrUri['host']) . ($this->arrUri['addport'] ? ':' . $this->arrUri['port'] : ''));
 		$headers['User-Agent'] = 'User-Agent: ' . $this->strUserAgent;
 		// TODO: do we want to add support for keep-alive?
 		$headers['Connection'] = 'Connection: close';
