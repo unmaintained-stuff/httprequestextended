@@ -291,6 +291,36 @@ class RequestExtended
 	);
 
 	/**
+	 * Username for HTTP auth
+	 * @var string
+	 */
+	protected $strUsername = NULL;
+
+	/**
+	 * Password for HTTP auth
+	 * @var string
+	 */
+	protected $strPassword = NULL;
+
+	/**
+	 * Logical flag if we want to send authorisation data.
+	 * @var mixed
+	 */
+	protected $performAuth = false;
+
+	/**
+	 * holds the auth data when performAuth is set to digest.
+	 * @var array
+	 */
+	protected $digestAuth = NULL;
+
+	/**
+	 * flag to determine if we shall follow redirects automatically.
+	 * @var bool
+	 */
+	protected $followRedirects=true;
+
+	/**
 	 * Set default values
 	 */
 	public function __construct()
@@ -365,6 +395,17 @@ class RequestExtended
 			case 'proxyuser':
 			case 'proxypass':
 				$this->arrProxy[$strKey] = $varValue;
+				break;
+
+			case 'username':
+				$this->strUsername = $varValue;
+				break;
+			case 'password':
+				$this->strPassword = $varValue;
+				break;
+
+			case 'redirect':
+				$this->followRedirects=$varValue;
 				break;
 
 			default:
@@ -791,6 +832,54 @@ class RequestExtended
 				(isset($this->arrUri['fragment'])?'#'.$this->arrUri['fragment']:'');
 	}
 
+	protected function generateAuth()
+	{
+		// decide which method to use.
+		switch($this->performAuth)
+		{
+			case 'Basic':
+				// WWW-Authenticate	Basic realm="The Realmname"
+				$this->arrHeaders['Authorization'] = 'Basic ' . base64_encode($this->strUsername . ':' . $this->strPassword);
+				break;
+			case 'Digest':
+					// NOTE: currently only qop=auth is implemented but this should work with the major of the servers.
+					
+					//random content for client nonce, will have to buffer if authentication session is going to be persistent.
+					$cnonce=uniqid();
+					$nc='00000001';
+					// calc hashes
+					$userhash=md5(implode(':', array($this->strUsername, $this->digestAuth['realm'], $this->strPassword)));
+					$urlhash=md5(strtoupper($this->strMethod).':'.$this->arrUri['fullpath']);
+					$data=array(
+								'username' => $this->strUsername,
+								'realm' => $this->digestAuth['realm'],
+								'qop' => $this->digestAuth['qop'],
+								'algorithm' => $this->digestAuth['algorithm'],
+								'uri' => $this->arrUri['fullpath'],
+								'nonce' => $this->digestAuth['nonce'],
+								'nc' => $nc,
+								'cnonce' => $cnonce,
+								'opaque' => array_key_exists('opaque', $this->digestAuth)?$this->digestAuth['opaque']:'',
+								//calculate the response hash as described in RFC 2617
+								'response' => md5(implode(':',array($userhash,$this->digestAuth['nonce'],$nc,$cnonce,$this->digestAuth['qop'],$urlhash))),
+								);
+					$response=array();
+					foreach($data as $k=>$v)
+					{
+						// omit empty values from the array as otherwise Digest auth will go bitchy.
+						if($v)
+						{
+							$response[]=sprintf('%s="%s"', $k,$v);
+						}
+					}
+					$this->arrHeaders['Authorization'] = 'Digest '.implode(',',$response);
+				break;
+			default:
+				throw new Exception('unknown Auth method required.');
+		}
+		$GLOBALS['TL_DEBUG']['Auth data']=$this->arrHeaders['Authorization'];
+	}
+
 	/**
 	 * Prepares the complete request data. Method, add headers and add POST data (if any).
 	 * @param string
@@ -799,7 +888,6 @@ class RequestExtended
 	{
 		// if no path defined, we check if we are performing an "OPTIONS" request, if so we want to get the server OPTIONS, use the root "/" otherwise.
 		$this->arrUri['fullpath'] = isset($this->arrUri['path']) ? $this->arrUri['path'] : ($this->strMethod == 'OPTIONS' ? '*' : '/');
-
 		if (isset($this->arrUri['query']))
 		{
 			// remove any ampersand as we can not use it in a valid HTTP Query.
@@ -809,6 +897,16 @@ class RequestExtended
 			$request = strtoupper($this->strMethod) .' '. $this->combineUri() .' HTTP/' . $this->strHttpVersion . "\r\n";
 		else
 			$request = strtoupper($this->strMethod) .' '. $this->arrUri['fullpath'] .' HTTP/' . $this->strHttpVersion . "\r\n";
+		if($this->performAuth)
+		{
+			// use user from url if defined.
+			if(array_key_exists('user', $this->arrUri) && array_key_exists('pass', $this->arrUri))
+			{
+				$this->strUsername=$this->arrUri['user'];
+				$this->strPassword=$this->arrUri['pass'];
+			}
+			$this->generateAuth();
+		}
 		$request .= implode("\r\n", $this->compileHeaders());
 		$request .= "\r\n\r\n";
 
@@ -1002,11 +1100,52 @@ class RequestExtended
 			$code = floor($code / 100) * 100;
 		}
 
-		// TODO: handle special error codes like "301/302 moved", ... here.
+		if((intval($this->intCode)==401) && array_key_exists('WWW-Authenticate', $this->arrResponseHeaders) && $this->arrResponseHeaders['WWW-Authenticate'])
+		{
+			// HTTP auth requested.
+			$authdata=array();
+			foreach(explode(',',$this->arrResponseHeaders['WWW-Authenticate']) as $v)
+			{
+				$v=array_map('trim', explode('=', $v,2));
+				$authdata[$v[0]]=($v[1][0]=='"')?substr($v[1],1,-1):$v[1];
+			}
+			if(array_key_exists('Basic realm',$authdata))
+			{
+				// WWW-Authenticate	Basic realm="The Realmname"
+				$this->performAuth='Basic';
+				return;
+			} else {
+				foreach($authdata as $k=>$v)
+				{
+					if(strpos($k, 'realm') !==false)
+					{
+						$tmp=explode(' ',$k);
+						$this->performAuth=$tmp[0];
+						$authdata['realm']=$v;
+						unset($authdata[$k]);
+					}
+				}
+				$this->digestAuth=$authdata;
+			}
+		}
 		if (!in_array(intval($code), array(200, 304)))
 		{
 			$this->strError = strlen($text) ? $text : $this->responses[$code];
 		}
+	}
+
+	protected function performRequest()
+	{
+		$this->strError='';
+		$this->intCode = 0;
+		if(!$this->connect())
+			return false;
+		$this->prepareRequest();
+		$this->sendRequest();
+		$this->readResponse();
+		$this->parseHeader();
+		// TODO: have to alter here when not using Connection: close - keep this in mind.
+		$this->disconnect();
 	}
 
 	/**
@@ -1024,27 +1163,50 @@ class RequestExtended
 		{
 			$this->strData = $strData;
 		}
-
 		if ($strMethod)
 		{
 			$this->strMethod = $strMethod;
 		}
-
-		$errstr = '';
-		$errno = null;
 		$this->arrUri = parse_url($strUrl);
-		if(!$this->connect())
-			return false;
-		$this->prepareRequest();
-		$this->sendRequest();
-		$this->readResponse();
-		$this->parseHeader();
-		// new functionality.
-		$headers = '';
-		$response = '';
-		$data = '';
-		// TODO: have to alter here when not using Connection: close - keep this in mind.
-		$this->disconnect();
+		$this->performRequest();
+		// handle special error codes like "301/302 moved", ... here.
+		do
+		{
+			$again=true;
+			switch($this->intCode)
+			{
+				case 401:
+					// retry request when auth data is present.
+					if($this->performAuth)
+						$this->performRequest();
+					break;
+				case 301:
+				case 302:
+					if($this->followRedirects)
+					{
+						// redirect..
+						if(($newurl=@parse_url($this->arrResponseHeaders['Location']))!==false)
+						{
+							if($newurl['schema'])
+							{
+								$this->arrUri = $newurl;
+							} else {
+								$this->arrUri=array_merge($this->arrUri, $newurl);
+							}
+							// TODO: do we really have to revert to GET here?
+							$this->strMethod = 'GET';
+							$GLOBALS['TL_DEBUG']['hdr']=$this->arrResponseHeaders;
+							$GLOBALS['TL_DEBUG']['redirect to']=$this->arrResponseHeaders['Location'];
+							$GLOBALS['TL_DEBUG']['redirect to']=$this->arrUri;
+							$this->performRequest();
+							break;
+						}
+					}
+				// do not reload per default.
+				default:
+					$again=false;
+			}
+		} while($again);
 		return !$this->hasError();
 	}
 	
