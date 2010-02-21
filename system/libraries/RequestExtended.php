@@ -83,6 +83,7 @@ class RequestExtended
 			204 => 'No Content',
 			205 => 'Reset Content',
 			206 => 'Partial Content',
+			207 => 'Multi-Status',
 			300 => 'Multiple Choices',
 			301 => 'Moved Permanently',
 			302 => 'Found',
@@ -249,10 +250,10 @@ class RequestExtended
 	protected $strResponse;
 	
 	/**
-	 * RAW unprocessed Response string
+	 * RAW unprocessed Response string (removed to save memory)
 	 * @var string
 	 */
-	protected $strRawResponse;
+//	protected $strRawResponse;
 	
 	/**
 	 * Request string
@@ -439,11 +440,11 @@ class RequestExtended
 			case 'response':
 				return $this->strResponse;
 				break;
-
+/*
 			case 'rawresponse':
 				return $this->strRawResponse;
 				break;
-
+*/
 			case 'headers':
 				return $this->arrResponseHeaders;
 				break;
@@ -453,7 +454,7 @@ class RequestExtended
 				break;
 
 			default:
-				return null;
+				return NULL;
 				break;
 		}
 	}
@@ -465,7 +466,10 @@ class RequestExtended
 	 */
 	public function setHeader($strKey, $varValue)
 	{
-		$this->arrHeaders[$strKey] = $varValue;
+		if($varValue)
+			$this->arrHeaders[$strKey] = $varValue;
+		else
+			unset($this->arrHeaders[$strKey]);
 	}
 
 	/**
@@ -776,7 +780,7 @@ class RequestExtended
 	 */
 	protected function readResponse()
 	{
-		$this->strRawResponse='';
+		//$this->strRawResponse='';
 		if(is_resource($this->socket))
 		{
 			/*
@@ -791,7 +795,7 @@ class RequestExtended
 			{
 				// TODO: add inline check for "Content-Length: xxx" and stop reading after that - needed for multiple connections.
 				$data .= $chunk;
-				$this->strRawResponse.=$chunk;
+				//$this->strRawResponse.=$chunk;
 				// strip 100 header if present.
 				$pos=strpos($data, "HTTP/1.1 100\r\n");
 				if($pos > 1)
@@ -877,7 +881,6 @@ class RequestExtended
 			default:
 				throw new Exception('unknown Auth method required.');
 		}
-		$GLOBALS['TL_DEBUG']['Auth data']=$this->arrHeaders['Authorization'];
 	}
 
 	/**
@@ -1195,9 +1198,6 @@ class RequestExtended
 							}
 							// TODO: do we really have to revert to GET here?
 							$this->strMethod = 'GET';
-							$GLOBALS['TL_DEBUG']['hdr']=$this->arrResponseHeaders;
-							$GLOBALS['TL_DEBUG']['redirect to']=$this->arrResponseHeaders['Location'];
-							$GLOBALS['TL_DEBUG']['redirect to']=$this->arrUri;
 							$this->performRequest();
 							break;
 						}
