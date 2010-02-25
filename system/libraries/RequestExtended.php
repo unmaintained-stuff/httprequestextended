@@ -189,7 +189,7 @@ class RequestExtended
 	 * The UserAgent header field - As what do we identify ourselves to the remote Server?
 	 * @var string
 	 */
-	protected $strUserAgent = 'Mozilla/5.0 (compatible; TYPOlight; http://www.typolight.org/) RequestExtended/1.0 (CyberSpectrum RequestExtended; rv:1.0)';
+	protected $strUserAgent = '';
 
 
 	/**
@@ -326,6 +326,7 @@ class RequestExtended
 	 */
 	public function __construct()
 	{
+		$this->strUserAgent='Mozilla/5.0 (compatible; CyberSpectrum RequestExtended on TYPOlight '.VERSION.'.'.BUILD.'; rv:1.0)';
 		$this->strData = '';
 		$this->strMethod = 'get';
 	}
@@ -458,7 +459,24 @@ class RequestExtended
 				break;
 		}
 	}
-	
+
+	/**
+	 * Set additional cookies (derived from a previous request and exported 
+	 * via $request->cookies;)
+	 * @param string
+	 * @param mixed
+	 */
+	public function addCookies($arrCookies)
+	{
+		foreach($arrCookies as $cookie)
+		{
+			if($this->checkCookie($cookie))
+			{
+				$this->arrCookies=array_merge($cookie);
+			}
+		}
+	}
+
 	/**
 	 * Set additional request headers
 	 * @param string
@@ -931,12 +949,13 @@ class RequestExtended
 	{
 		$csplit = explode(';', $line);
 		$cdata = array();
-		foreach( $csplit as $data ) {
+		foreach($csplit as $data) {
 			$cinfo = explode('=', $data, 2);
-			$cinfo[0] = trim( $cinfo[0] );
-			if( $cinfo[0] == 'expires' ) $cinfo[1] = strtotime( $cinfo[1] );
-			if( $cinfo[0] == 'secure' ) $cinfo[1] = "true";
-			if( in_array( $cinfo[0], array( 'domain', 'expires', 'path', 'secure', 'comment', 'version' ) ) ) {
+			$cinfo[0] = trim($cinfo[0]);
+			if($cinfo[0] == 'expires') $cinfo[1] = strtotime( $cinfo[1] );
+			if($cinfo[0] == 'secure') $cinfo[1] = "true";
+			if(in_array($cinfo[0], array('domain', 'expires', 'path', 'secure', 'comment', 'version')))
+			{
 				$cdata[trim( $cinfo[0] )] = $cinfo[1];
 			}
 			else {
@@ -961,7 +980,7 @@ class RequestExtended
 		if(isset($cookie['expires']) && ($cookie['expires'] < time()))
 			return false;
 		// host is not matching - REJECT!
-		if(!strstr($this->arrUri['host'], $cookie['domain']))
+		if($cookie['domain'] && !strstr($this->arrUri['host'], $cookie['domain']))
 			return false;
 		// path is not matching - REJECT!
 		if(!strstr($this->arrUri['fullpath'], $cookie['path']))
@@ -976,19 +995,35 @@ class RequestExtended
 	 */
 	protected function compileCookies()
 	{
-		$ret=array();
+		if(!count($this->arrCookies))
+			return array();
+		$ret=array('Cookie: ');
+		$max=count($this->arrCookies);
 		foreach($this->arrCookies as $name=>$cookie)
 		{
 			if(!$this->checkCookie($cookie))
 			{
 				continue;
 			}
-			$tmp='Cookie: '.$cookie['name'].'='.$cookie['value'] . '; $version='.(isset($cookie['version']) ? $cookie['version'] : '1');
+			$ret[0].=$cookie['name'].'='.$cookie['value'] . (++$i<$max?';':'');
+		}
+// this should be version 1 compatible but somehow it is really not working.
+// Have to work on it some later time.
+/*
+		$i=0;$max=count($this->arrCookies);
+		foreach($this->arrCookies as $name=>$cookie)
+		{
+			if(!$this->checkCookie($cookie))
+			{
+				continue;
+			}
+			$tmp=($i>-41?'Cookie: ':'').$cookie['name'].'='.$cookie['value'] . '; $Version="'.(isset($cookie['version']) ? $cookie['version'] : '1').'"';
 			foreach($cookie as $key=>$value)
-				if(!in_array($key, array('name', 'value', 'version')))
-					$tmp .= '; $' . $key . '=' . $value;
+				if(!in_array($key, array('name', 'value', 'version','expires')))
+					$tmp .= '; $' . ucfirst($key) . '=' . $value;
 			$ret[] = $tmp;
 		}
+*/
 		return $ret;
 	}
 	
@@ -1030,16 +1065,16 @@ class RequestExtended
 		{
 			$headers['Range'] ='Range: bytes=' . $this->intRangeStart . '-' . (($this->intRangeEnd >= $this->intRangeStart) ? $this->intRangeEnd : '');
 		}
-		
-		// add cookies.
-		foreach ($this->compileCookies() as $cookie)
-			$headers[] = $cookie;
 
 		// add user headers.
 		foreach ($this->arrHeaders as $header=>$value)
 		{
 			$headers[$header] = $header . ': ' . $value;
 		}
+		
+		// add cookies.
+		foreach ($this->compileCookies() as $cookie)
+			$headers[] = $cookie;
 		return $headers;
 	}
 
@@ -1185,6 +1220,7 @@ class RequestExtended
 					break;
 				case 301:
 				case 302:
+				case 303:
 					if($this->followRedirects)
 					{
 						// redirect..
@@ -1198,6 +1234,7 @@ class RequestExtended
 							}
 							// TODO: do we really have to revert to GET here?
 							$this->strMethod = 'GET';
+							$this->strData = false;
 							$this->performRequest();
 							break;
 						}
