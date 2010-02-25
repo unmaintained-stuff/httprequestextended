@@ -468,12 +468,9 @@ class RequestExtended
 	 */
 	public function addCookies($arrCookies)
 	{
-		foreach($arrCookies as $cookie)
+		foreach($arrCookies as $name=>$cookie)
 		{
-			if($this->checkCookie($cookie))
-			{
-				$this->arrCookies=array_merge($cookie);
-			}
+			$this->arrCookies[$name]=$cookie;
 		}
 	}
 
@@ -980,7 +977,7 @@ class RequestExtended
 		if(isset($cookie['expires']) && ($cookie['expires'] < time()))
 			return false;
 		// host is not matching - REJECT!
-		if($cookie['domain'] && !strstr($this->arrUri['host'], $cookie['domain']))
+		if(isset($cookie['domain']) && !strstr($this->arrUri['host'], $cookie['domain']))
 			return false;
 		// path is not matching - REJECT!
 		if(!strstr($this->arrUri['fullpath'], $cookie['path']))
