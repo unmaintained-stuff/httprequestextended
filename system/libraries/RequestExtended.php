@@ -250,12 +250,6 @@ class RequestExtended
 	protected $strResponse;
 	
 	/**
-	 * RAW unprocessed Response string (removed to save memory)
-	 * @var string
-	 */
-//	protected $strRawResponse;
-	
-	/**
 	 * Request string
 	 * @var string
 	 */
@@ -441,11 +435,7 @@ class RequestExtended
 			case 'response':
 				return $this->strResponse;
 				break;
-/*
-			case 'rawresponse':
-				return $this->strRawResponse;
-				break;
-*/
+
 			case 'headers':
 				return $this->arrResponseHeaders;
 				break;
@@ -795,7 +785,8 @@ class RequestExtended
 	 */
 	protected function readResponse()
 	{
-		//$this->strRawResponse='';
+		$response='';
+		$headers = '';
 		if(is_resource($this->socket))
 		{
 			/*
@@ -810,7 +801,6 @@ class RequestExtended
 			{
 				// TODO: add inline check for "Content-Length: xxx" and stop reading after that - needed for multiple connections.
 				$data .= $chunk;
-				//$this->strRawResponse.=$chunk;
 				// strip 100 header if present.
 				$pos=strpos($data, "HTTP/1.1 100\r\n");
 				if($pos > 1)
@@ -904,6 +894,7 @@ class RequestExtended
 	 */
 	protected function prepareRequest()
 	{
+
 		// if no path defined, we check if we are performing an "OPTIONS" request, if so we want to get the server OPTIONS, use the root "/" otherwise.
 		$this->arrUri['fullpath'] = isset($this->arrUri['path']) ? $this->arrUri['path'] : ($this->strMethod == 'OPTIONS' ? '*' : '/');
 		if (isset($this->arrUri['query']))
@@ -1033,7 +1024,7 @@ class RequestExtended
 		if ($this->arrProxy['proxyhost'] && $this->arrUri['scheme'] != 'https')
 			$headers = array();
 		else
-			$headers = array('Host' => 'Host: ' . ($this->isIP6($this->arrUri['host']) ? '[' . $this->arrUri['host'] . ']' : $this->arrUri['host']) . ($this->arrUri['addport'] ? ':' . $this->arrUri['port'] : ''));
+			$headers = array('Host' => 'Host: ' . ($this->isIP6($this->arrUri['host']) ? '[' . $this->arrUri['host'] . ']' : $this->arrUri['host']) . ((isset($this->arrUri['addport']) && $this->arrUri['addport']) ? ':' . $this->arrUri['port'] : ''));
 		$headers['User-Agent'] = 'User-Agent: ' . $this->strUserAgent;
 		// TODO: do we want to add support for keep-alive?
 		$headers['Connection'] = 'Connection: close';
@@ -1171,8 +1162,12 @@ class RequestExtended
 
 	protected function performRequest()
 	{
+		// clean responses.
+		$this->intCode=0;
 		$this->strError='';
-		$this->intCode = 0;
+		$this->strHeaders=NULL;
+		$this->strResponse=NULL;
+		$this->arrResponseHeaders=NULL;
 		if(!$this->connect())
 			return false;
 		$this->prepareRequest();
