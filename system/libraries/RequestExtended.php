@@ -1,16 +1,6 @@
 <?php if (!defined('TL_ROOT')) die('You can not access this file directly!');
 
 /**
- * TYPOlight webCMS
- *
- * The TYPOlight webCMS is an accessible web content management system that 
- * specializes in accessibility and generates W3C-compliant HTML code. It 
- * provides a wide range of functionality to develop professional websites 
- * including a built-in search engine, form generator, file and user manager, 
- * CSS engine, multi-language support and many more. For more information and 
- * additional TYPOlight applications like the TYPOlight MVC Framework please 
- * visit the project website http://www.typolight.org.
- * 
  * PHP version 5
  * @copyright	Christian Schiffler <c.schiffler@cyberspectrum.de>
  * @package		RequestExtended
@@ -23,7 +13,7 @@
  *
  * Provide methods to handle HTTP 1.1 requests. This class uses some functions of
  * Drupal's HTTP request class that you can find on http://drupal.org.
- * Based upon the TL core Request class by Leo Feyer <leo@typolight.org>
+ * Initially based upon the Contao core Request class by Leo Feyer <leo@typolight.org>
  * Proxy functionality is heavily influenced by code from Jörg Kleuver.
  * This class tries to implement almost the complete RFC 2616 on raw fsockopen.
  * @copyright  Christian Schiffler 2009
@@ -320,7 +310,7 @@ class RequestExtended
 	 */
 	public function __construct()
 	{
-		$this->strUserAgent='Mozilla/5.0 (compatible; CyberSpectrum RequestExtended on TYPOlight '.VERSION.'.'.BUILD.'; rv:1.0)';
+		$this->strUserAgent='Mozilla/5.0 (compatible; CyberSpectrum RequestExtended on Contao '.VERSION.'.'.BUILD.'; rv:1.0)';
 		$this->strData = '';
 		$this->strMethod = 'get';
 	}
@@ -793,7 +783,7 @@ class RequestExtended
 				TODO: Shall we implement a timeout within here to detect if a server let's us die slowly? 
 				Can we? 
 				Would be nice to have to prevent issues like we already had with twitter reader which brought 
-				whole TL installations down when twitter WebService was down.
+				whole installations down when twitter WebService was down.
 			*/
 			$data = '';
 			// read header.
