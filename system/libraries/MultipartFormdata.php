@@ -95,8 +95,7 @@ class MultipartFormdata
 				$df .= 'Content-Transfer-Encoding: ' . $data['encoding'] . CRLF;
 				$df .= CRLF;
 				// add file content.
-				$ret .= file_get_contents($data['filename']) . CRLF;
-				$df .= 'file: ' . $data['filename'] . CRLF;
+				$df .= file_get_contents($data['filename']) . CRLF;
 			}
 			else
 			{
