@@ -9,12 +9,12 @@
  */
 
 /**
- * Class Request11
+ * Class RequestExtended
  *
  * Provide methods to handle HTTP 1.1 requests. This class uses some functions of
  * Drupal's HTTP request class that you can find on http://drupal.org.
  * Initially based upon the Contao core Request class by Leo Feyer <leo@typolight.org>
- * Proxy functionality is heavily influenced by code from Jörg Kleuver.
+ * Proxy functionality is heavily influenced by code from Joerg Kleuver.
  * This class tries to implement almost the complete RFC 2616 on raw fsockopen.
  * @copyright  Christian Schiffler 2009
  * @author     Christian Schiffler <c.schiffler@cyberspectrum.de>
@@ -1198,7 +1198,12 @@ class RequestExtended
 				case 401:
 					// retry request when auth data is present.
 					if($this->performAuth)
+					{
 						$this->performRequest();
+						// login did not work out, most likely wrong user/pass, break now.
+						if($this->intCode==401)
+							$again=false;
+					}
 					break;
 				case 301:
 				case 302:
