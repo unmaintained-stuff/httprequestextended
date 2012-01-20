@@ -306,6 +306,12 @@ class RequestExtended
 	protected $followRedirects=true;
 
 	/**
+	 * timeout for sockets
+	 * @var int
+	 */
+	protected $intTimeout = 5;
+
+	/**
 	 * Set default values
 	 */
 	public function __construct()
@@ -394,6 +400,10 @@ class RequestExtended
 				$this->followRedirects=$varValue;
 				break;
 
+			case 'timeout':
+				$this->intTimeout=$varValue;
+				break;
+
 			default:
 				throw new Exception(sprintf('Invalid argument "%s"', $strKey));
 				break;
@@ -432,6 +442,10 @@ class RequestExtended
 
 			case 'cookies':
 				return $this->arrCookies;
+				break;
+
+			case 'timeout':
+				return $this->intTimeout;
 				break;
 
 			default:
@@ -639,7 +653,7 @@ class RequestExtended
 
 	protected function openSocket($host, $port)
 	{
-		$this->socket = @fsockopen($host, $port, $errno, $errstr, 10);
+		$this->socket = @fsockopen($host, $port, $errno, $errstr, $this->intTimeout);
 		if (!is_resource($this->socket))
 		{
 			$this->intCode = $errno;
@@ -779,15 +793,10 @@ class RequestExtended
 		$headers = '';
 		if(is_resource($this->socket))
 		{
-			/*
-				TODO: Shall we implement a timeout within here to detect if a server let's us die slowly? 
-				Can we? 
-				Would be nice to have to prevent issues like we already had with twitter reader which brought 
-				whole installations down when twitter WebService was down.
-			*/
+			$blnTimeout = false;
 			$data = '';
 			// read header.
-			while (!feof($this->socket) && ($chunk = fread($this->socket, 1024)) != false)
+			while (($blnTimeout == false) && !feof($this->socket) && (($chunk = fread($this->socket, 1024)) != false))
 			{
 				// TODO: add inline check for "Content-Length: xxx" and stop reading after that - needed for multiple connections.
 				$data .= $chunk;
@@ -804,12 +813,16 @@ class RequestExtended
 					$headers = substr($data, 0, $pos);
 					$response = substr($data, $pos+4);
 				}
+				$info = stream_get_meta_data($this->socket);
+				$blnTimeout = $info['timed_out'];
 			}
 			// read response.
 			$data = '';
-			while (!feof($this->socket) && ($chunk = fread($this->socket, 1024)) != false)
+			while (($blnTimeout == false) && !feof($this->socket) && (($chunk = fread($this->socket, 1024)) != false))
 			{
 				$response .= $chunk;
+				$info = stream_get_meta_data($this->socket);
+				$blnTimeout = $info['timed_out'];
 			}
 			$this->strResponse=$response;
 			$this->strHeaders=$headers;
