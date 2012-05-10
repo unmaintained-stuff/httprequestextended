@@ -525,26 +525,43 @@ class RequestExtended
 
 	/**
 	 * decode a "Transfer-Encoding: chunked" encoded reply.
+	 * 
 	 * @param string
+	 * 
 	 * @return string
 	 */
 	protected function decodeChunked($string)
 	{
-		$lines = explode("\r\n",$string);
-		$i=0;
-		$length = 999;
-		$content = '';
-		foreach($lines as $line) {
-			$i++;
-			if ($i%2 == 1) {
-				$length = hexdec($line);
-			} elseif ($length == strlen($line)) {
-			$content .= $line;
+		$arrLines = explode("\r\n",$string);
+		$intTotal = count($arrLines);
+
+		if (!$intTotal)
+		{
+			return '';
 		}
-			if ($length == 0)
-				break;
+
+		$intChunkLength = hexdec($arrLines[0]);
+		$strContent = '';
+		for ($i=1; $i<$intTotal; $i++)
+		{
+			if ($intChunkLength == 0)
+			{
+				$intChunkLength = hexdec($arrLines[$i]);
+				continue;
+			}
+
+			$intLength = strlen($arrLines[$i]);
+			if ($intLength == $intChunkLength)
+			{
+				$strContent .= $arrLines[$i];
+				$intChunkLength = 0;
+			} else {
+				$strContent .= $arrLines[$i] . "\r\n";
+				$intChunkLength -= ($intLength + 2 /* strlen("\r\n") */);
+			}
 		}
-		return $content;
+
+		return $strContent;
 	}
 
 	/**
