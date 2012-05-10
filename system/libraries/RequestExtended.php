@@ -923,49 +923,60 @@ class RequestExtended
 		}
 	}
 
+	protected function readFromSocket(&$varData)
+	{
+		$arrInfo = stream_get_meta_data($this->socket);
+		if (!(feof($this->socket) || ($info['timed_out'] === true)))
+		{
+			$varData = fread($this->socket, 1024);
+			return ($varData !== false);
+		}
+		return false;
+	}
+
 	/**
 	 * reads the response until eof or content length reached.
 	 */
 	protected function readResponse()
 	{
-		$response='';
-		$headers = '';
+		$strResponse = '';
+		$strHeaders = '';
+
 		if(is_resource($this->socket))
 		{
-			$blnTimeout = false;
-			$data = '';
+			$strData = '';
 			// read header.
-			while (($blnTimeout == false) && !feof($this->socket) && (($chunk = fread($this->socket, 1024)) != false))
+			while ($this->readFromSocket($strChunk))
 			{
 				// TODO: add inline check for "Content-Length: xxx" and stop reading after that - needed for multiple connections.
-				$data .= $chunk;
+				$strData .= $strChunk;
 				// strip 100 header if present.
-				$pos=strpos($data, "HTTP/1.1 100\r\n");
-				if($pos > 1)
+				$intPos = strpos($strData, "HTTP/1.1 100\r\n");
+				if ($intPos > 1)
 				{
-					$data = substr($data, $pos+12);
+					$strData = substr($strData, $intPos + 12);
 				}
+
 				// end of headers contained?
-				$pos=strpos($data, "\r\n\r\n");
-				if($pos > 1)
+				$intPos = strpos($strData, "\r\n\r\n");
+				if ($intPos > 1)
 				{
-					$headers = substr($data, 0, $pos);
-					$response = substr($data, $pos+4);
+					$strHeaders = substr($strData, 0, $intPos);
+					$strResponse = substr($strData, $intPos + 4);
+					$strData = '';
+					break;
 				}
-				$info = stream_get_meta_data($this->socket);
-				$blnTimeout = $info['timed_out'];
 			}
+
 			// read response.
-			$data = '';
-			while (($blnTimeout == false) && !feof($this->socket) && (($chunk = fread($this->socket, 1024)) != false))
+			while ($this->readFromSocket($strChunk))
 			{
-				$response .= $chunk;
-				$info = stream_get_meta_data($this->socket);
-				$blnTimeout = $info['timed_out'];
+				$strResponse .= $strChunk;
 			}
-			$this->strResponse=$response;
-			$this->strHeaders=$headers;
 		}
+
+		$this->strResponse = $strResponse;
+		$this->strHeaders = $strHeaders;
 	}
 
 	/**
