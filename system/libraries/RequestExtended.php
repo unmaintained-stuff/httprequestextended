@@ -455,8 +455,31 @@ class RequestExtended
 	}
 
 	/**
+	 * Returns all response headers received.
+	 * 
+	 * @return string[]
+	 */
+	public function getResponseHeaderKeys()
+	{
+		return array_keys($this->arrResponseHeaders);
+	}
+
+	/**
+	 * Fetch a certain response header.
+	 * 
+	 * @param string $strHeader the header to be received (case insensitive)
+	 * 
+	 * @return string|null
+	 */
+	public function getResponseHeader($strHeader)
+	{
+		return $this->arrResponseHeaders[strtolower($strHeader)];
+	}
+
+	/**
 	 * Set additional cookies (derived from a previous request and exported 
 	 * via $request->cookies;)
+	 * 
 	 * @param string
 	 * @param mixed
 	 */
@@ -499,7 +522,7 @@ class RequestExtended
 	{
 		return (filter_var($string, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) ? true : false);
 	}
-	
+
 	/**
 	 * decode a "Transfer-Encoding: chunked" encoded reply.
 	 * @param string
@@ -572,17 +595,114 @@ class RequestExtended
 	
 	/**
 	 * decode a "compress" encoded reply.
-	 * currently unimplemented idea can come from 
-	 * http://whoyouknow.co.uk/uni/datacompression/lzw.php?source	<- demo implementation on bitstrings
-	 * http://www.geocities.com/yccheok/lzw/lzw.html				<- doc of algorithm
-	 * http://wiki.lmu-mi.de/index.php/LZW-Kodierung				<- german
-	 * @param string
-	 * @return string
+	 * 
+	 * @link http://code.google.com/p/php-lzw/
+	 * @author Jakub Vrana, http://www.vrana.cz/
+	 * @copyright 2009 Jakub Vrana
+	 * @license http://www.apache.org/licenses/LICENSE-2.0 Apache License, Version 2.0
+	 * 
+	 * @param string compressed binary data
+	 * 
+	 * @return string original data
 	 */
-	protected function decodeCompress($string){
-		// TODO: unimplemented.
-		return $string;
+	protected function decodeCompress($strBinary)
+	{
+		// convert binary string to codes
+		$dictionary_count = 256;
+		$bits = 8; // ceil(log($dictionary_count, 2))
+		$codes = array();
+		$rest = 0;
+		$rest_length = 0;
+		for ($i=0; $i < strlen($strBinary); $i++)
+		{
+				$rest = ($rest << 8) + ord($strBinary[$i]);
+				$rest_length += 8;
+				if ($rest_length >= $bits)
+				{
+					$rest_length -= $bits;
+					$codes[] = $rest >> $rest_length;
+					$rest &= (1 << $rest_length) - 1;
+					$dictionary_count++;
+					if ($dictionary_count >> $bits)
+					{
+						$bits++;
+					}
+				}
+		}
+
+		// decompression
+		$dictionary = range("\0", "\xFF");
+		$return = "";
+		foreach ($codes as $i => $code) {
+			$element = $dictionary[$code];
+			if (!isset($element)) {
+				$element = $word . $word[0];
+			}
+			$return .= $element;
+			if ($i) {
+				$dictionary[] = $word . $element[0];
+			}
+			$word = $element;
+		}
+		return $return;
 	}
+
+	/**
+	 * encode "compress" encoded data. LZW compression.
+	 * 
+	 * @link http://code.google.com/p/php-lzw/
+	 * @author Jakub Vrana, http://www.vrana.cz/
+	 * @copyright 2009 Jakub Vrana
+	 * @license http://www.apache.org/licenses/LICENSE-2.0 Apache License, Version 2.0
+	 * 
+	 * @param string data to compress
+	 * 
+	 * @return string binary data
+	 */
+	protected function encodeCompress($strData)
+	{
+		// compression
+		$dictionary = array_flip(range("\0", "\xFF"));
+		$word = "";
+		$codes = array();
+		for ($i=0; $i <= strlen($strData); $i++)
+		{
+			$x = $strData[$i];
+			if (strlen($x) && isset($dictionary[$word . $x]))
+			{
+				$word .= $x;
+			} elseif ($i) {
+				$codes[] = $dictionary[$word];
+				$dictionary[$word . $x] = count($dictionary);
+				$word = $x;
+			}
+		}
+
+		// convert codes to binary string
+		$dictionary_count = 256;
+		$bits = 8; // ceil(log($dictionary_count, 2))
+		$return = "";
+		$rest = 0;
+		$rest_length = 0;
+		foreach ($codes as $code)
+		{
+			$rest = ($rest << $bits) + $code;
+			$rest_length += $bits;
+			$dictionary_count++;
+			if ($dictionary_count >> $bits)
+			{
+				$bits++;
+			}
+			while ($rest_length > 7)
+			{
+				$rest_length -= 8;
+				$return .= chr($rest >> $rest_length);
+				$rest &= (1 << $rest_length) - 1;
+			}
+		}
+		return $return . ($rest_length ? chr($rest << (8 - $rest_length)) : "");
+	}
+
 
 	/**
 	 * decode the response using the given algorithm.
@@ -635,6 +755,8 @@ class RequestExtended
 				$strData=$this->encodeDeflate($strData);
 				return true;
 			case 'compress':
+				$strData=$this->encodeCompress($strData);
+				return true;
 			default:
 				return false;
 		}
@@ -772,7 +894,7 @@ class RequestExtended
 			$this->socket=NULL;
 		}
 	}
-	
+
 	/**
 	 * send the prepared request to the connection if any is present.
 	 */
@@ -783,7 +905,7 @@ class RequestExtended
 			fwrite($this->socket, $this->strRequest);
 		}
 	}
-	
+
 	/**
 	 * reads the response until eof or content length reached.
 	 */
@@ -1075,13 +1197,16 @@ class RequestExtended
 	 * @param string
 	 * @param string
 	 */
-	protected function processHeaderLine($header, $value)
+	protected function processHeaderLine($strHeader, $value)
 	{
 		if($header == 'Set-Cookie')
 		{
 			$this->parseCookie($value);
 		} else {
-			$this->arrResponseHeaders[$header] = trim($value);
+			// TODO: keep this for a grace period until the usage of getResponseHeader() is widely adopted. See issue #2978
+			$this->arrResponseHeaders[$strHeader] = trim($value);
+
+			$this->arrResponseHeaders[strtolower($strHeader)] = trim($value);
 		}
 	}
 
