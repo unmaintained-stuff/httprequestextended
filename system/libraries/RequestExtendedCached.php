@@ -104,7 +104,7 @@ class RequestExtendedCached extends RequestExtended
 		// clean responses.
 		$this->intCode=0;
 		$this->strError='';
-		$this->strHeaders=NULL;
+		$this->strResponseHeaders=NULL;
 		$this->strResponse=NULL;
 		$this->arrResponseHeaders=NULL;
 		$this->prepareRequest();
