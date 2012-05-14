@@ -142,7 +142,7 @@ class RequestExtended
 	
 	/**
 	 * If you need to download only a part of the requested document, specify
-     * position of subpart start. If 0, then the request will fetch the 
+	 * position of subpart start. If 0, then the request will fetch the 
 	 * complete document (useful for for broken download restoration, for example.)
 	 * @var integer
 	 */
@@ -150,7 +150,7 @@ class RequestExtended
 
 	/**
 	 * If you need to download only a part of the requested document, specify
-     * position of subpart end. If 0, then the request will fetch the 
+	 * position of subpart end. If 0, then the request will fetch the 
 	 * document from rangeStart to end of document (useful for broken download 
 	 * restoration, for example.)
 	 * @var integer
@@ -231,7 +231,7 @@ class RequestExtended
 	 * RAW unprocessed Response Headers
 	 * @var string
 	 */
-	protected $strHeaders;
+	protected $strResponseHeaders;
 
 	/**
 	 * Response string
@@ -940,7 +940,7 @@ class RequestExtended
 	protected function readResponse()
 	{
 		$strResponse = '';
-		$strHeaders = '';
+		$strResponseHeaders = '';
 
 		if(is_resource($this->socket))
 		{
@@ -961,7 +961,7 @@ class RequestExtended
 				$intPos = strpos($strData, "\r\n\r\n");
 				if ($intPos > 1)
 				{
-					$strHeaders = substr($strData, 0, $intPos);
+					$strResponseHeaders = substr($strData, 0, $intPos);
 					$strResponse = substr($strData, $intPos + 4);
 					$strData = '';
 					break;
@@ -976,7 +976,7 @@ class RequestExtended
 		}
 
 		$this->strResponse = $strResponse;
-		$this->strHeaders = $strHeaders;
+		$this->strResponseHeaders = $strResponseHeaders;
 	}
 
 	/**
@@ -1245,7 +1245,7 @@ class RequestExtended
 	 */
 	protected function parseHeader()
 	{
-		$split = preg_split("/\r\n|\n|\r/", $this->strHeaders);
+		$split = preg_split("/\r\n|\n|\r/", $this->strResponseHeaders);
 		$this->arrResponseHeaders = array();
 		list(, $code, $text) = explode(' ', trim(array_shift($split)), 3);
 		$header='';
@@ -1321,8 +1321,8 @@ class RequestExtended
 		// clean responses.
 		$this->intCode=0;
 		$this->strError='';
-		$this->strHeaders=NULL;
 		$this->strResponse=NULL;
+		$this->strResponseHeaders=NULL;
 		$this->arrResponseHeaders=NULL;
 		if(!$this->connect())
 			return false;

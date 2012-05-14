@@ -119,8 +119,8 @@ class RequestExtendedCached extends RequestExtended
 				$this->putCache();
 			}
 		} else {
-			$this->strResponse=$objResponse->data;
-			$this->strResponseHeaders=$objResponse->header;
+			$this->strResponse = $objResponse->data;
+			$this->strResponseHeaders = $objResponse->header;
 			$this->intCode=200;
 		}
 	}
