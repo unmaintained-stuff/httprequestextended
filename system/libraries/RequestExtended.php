@@ -4,7 +4,7 @@
  * PHP version 5
  * @copyright	Christian Schiffler <c.schiffler@cyberspectrum.de>
  * @package		RequestExtended
- * @license		LGPL 
+ * @license		LGPL
  * @filesource
  */
 
@@ -22,7 +22,7 @@
  */
 class RequestExtended
 {
-/* 
+/*
 	Headers implemented:
 		general-header
 			Transfer-Encoding        ; Section 14.41
@@ -31,7 +31,7 @@ class RequestExtended
 			Accept-Encoding          ; Section 14.3
 			Range                    ; Section 14.35
 	Headers not implemented yet:
-		general-header 
+		general-header
 			Cache-Control            ; Section 14.9
 			Connection               ; Section 14.10
 			Date                     ; Section 14.18
@@ -118,7 +118,7 @@ class RequestExtended
 	 * @var array
 	 */
 	protected $arrUri = array();
-	
+
 
 
 	/**
@@ -126,23 +126,23 @@ class RequestExtended
 	 * @var string
 	 */
 	protected $strData;
-	
+
 	/**
 	 * Mime type of sending data. Default is: 'application/octet-stream' (as recommended in RFC 2616 7.2.1).
 	 * @var string
 	 */
 	protected $strDataMime = 'application/octet-stream';
-	
+
 	/**
 	 * protocol version. Possible values are: '1.1' (default), '1.0'
 	 * and '0.9'.
 	 * @var string
 	 */
 	protected $strHttpVersion = '1.1';
-	
+
 	/**
 	 * If you need to download only a part of the requested document, specify
-	 * position of subpart start. If 0, then the request will fetch the 
+	 * position of subpart start. If 0, then the request will fetch the
 	 * complete document (useful for for broken download restoration, for example.)
 	 * @var integer
 	 */
@@ -150,8 +150,8 @@ class RequestExtended
 
 	/**
 	 * If you need to download only a part of the requested document, specify
-	 * position of subpart end. If 0, then the request will fetch the 
-	 * document from rangeStart to end of document (useful for broken download 
+	 * position of subpart end. If 0, then the request will fetch the
+	 * document from rangeStart to end of document (useful for broken download
 	 * restoration, for example.)
 	 * @var integer
 	 */
@@ -194,15 +194,15 @@ class RequestExtended
 	 */
 	protected $arrAcceptEncoding=array
 								(
-									'chunked' => 1, 
+									'chunked' => 1,
 									// Must not be specified according to RFC in responses, not sure about requests though.
-									'identity' => 0, 
+									'identity' => 0,
 									'gzip' => 1,
-									// Unimplemented: See Notes in ::decodeCompress() 
+									// Unimplemented: See Notes in ::decodeCompress()
 									// 'compress' => 1,
 									'deflate' => 1
 								);
-								
+
 	/**
 	 * The Transfer-Encoding we want to use for remote requests.
 	 * @var string
@@ -238,7 +238,7 @@ class RequestExtended
 	 * @var string
 	 */
 	protected $strResponse;
-	
+
 	/**
 	 * Request string
 	 * @var string
@@ -250,7 +250,7 @@ class RequestExtended
 	 * @var array
 	 */
 	protected $arrHeaders = array();
-	
+
 	/**
 	 * Cookies array (these Cookies will be sent)
 	 * @var array
@@ -355,19 +355,19 @@ class RequestExtended
 			case 'method':
 				$this->strMethod = $varValue;
 				break;
-			
+
 			case 'useragent':
 				$this->strUserAgent = $varValue;
 				break;
-				
+
 			case 'acceptmime':
 				$this->strAccept = $varValue;
 				break;
-				
+
 			case 'acceptgzip':
 				$this->arrAcceptEncoding['gzip'] = $varValue;
 				break;
-				
+
 			case 'acceptdeflate':
 				$this->arrAcceptEncoding['deflate'] = $varValue;
 				break;
@@ -456,7 +456,7 @@ class RequestExtended
 
 	/**
 	 * Returns all response headers received.
-	 * 
+	 *
 	 * @return string[]
 	 */
 	public function getResponseHeaderKeys()
@@ -466,9 +466,9 @@ class RequestExtended
 
 	/**
 	 * Fetch a certain response header.
-	 * 
+	 *
 	 * @param string $strHeader the header to be received (case insensitive)
-	 * 
+	 *
 	 * @return string|null
 	 */
 	public function getResponseHeader($strHeader)
@@ -477,9 +477,9 @@ class RequestExtended
 	}
 
 	/**
-	 * Set additional cookies (derived from a previous request and exported 
+	 * Set additional cookies (derived from a previous request and exported
 	 * via $request->cookies;)
-	 * 
+	 *
 	 * @param string
 	 * @param mixed
 	 */
@@ -525,9 +525,9 @@ class RequestExtended
 
 	/**
 	 * decode a "Transfer-Encoding: chunked" encoded reply.
-	 * 
+	 *
 	 * @param string
-	 * 
+	 *
 	 * @return string
 	 */
 	protected function decodeChunked($string)
@@ -593,13 +593,13 @@ class RequestExtended
 		$try = @gzuncompress($string);
 		if(strlen($try))
 			return $try;
-		// It turns out that some browsers expect deflated data without the 
+		// It turns out that some browsers expect deflated data without the
 		// first two bytes (a kind of header) and and the last four bytes (an ADLER32 checksum).
-		// IIS 5 also requires gzinflate instead of gzuncompress (similar to 
-		// IE 5 and gzdeflate v. gzcompress) this means there are no Zlib headers, although 
+		// IIS 5 also requires gzinflate instead of gzuncompress (similar to
+		// IE 5 and gzdeflate v. gzcompress) this means there are no Zlib headers, although
 		// there should be. We try to uncompress in the IE way now.
 		$try = substr($string, 1, -4);
-		$try = @gzinflate($string);		
+		$try = @gzinflate($string);
 		if(strlen($try))
 			return $try;
 		// if we did still not succeed, fall back to gzip as last resort.
@@ -609,17 +609,17 @@ class RequestExtended
 		// Nothing worked out, giving up now. :(
 		return $string;
 	}
-	
+
 	/**
 	 * decode a "compress" encoded reply.
-	 * 
+	 *
 	 * @link http://code.google.com/p/php-lzw/
 	 * @author Jakub Vrana, http://www.vrana.cz/
 	 * @copyright 2009 Jakub Vrana
 	 * @license http://www.apache.org/licenses/LICENSE-2.0 Apache License, Version 2.0
-	 * 
+	 *
 	 * @param string compressed binary data
-	 * 
+	 *
 	 * @return string original data
 	 */
 	protected function decodeCompress($strBinary)
@@ -666,14 +666,14 @@ class RequestExtended
 
 	/**
 	 * encode "compress" encoded data. LZW compression.
-	 * 
+	 *
 	 * @link http://code.google.com/p/php-lzw/
 	 * @author Jakub Vrana, http://www.vrana.cz/
 	 * @copyright 2009 Jakub Vrana
 	 * @license http://www.apache.org/licenses/LICENSE-2.0 Apache License, Version 2.0
-	 * 
+	 *
 	 * @param string data to compress
-	 * 
+	 *
 	 * @return string binary data
 	 */
 	protected function encodeCompress($strData)
@@ -792,7 +792,14 @@ class RequestExtended
 
 	protected function openSocket($host, $port)
 	{
-		$this->socket = @fsockopen($host, $port, $errno, $errstr, $this->intTimeout);
+		// idna encode the hostname...
+		if (!class_exists('idna_convert', false))
+		{
+			require_once(TL_ROOT . '/plugins/idna/idna_convert.class.php');
+		}
+		$objIdn = new idna_convert();
+
+		$this->socket = @fsockopen($objIdn->encode($host), $port, $errno, $errstr, $this->intTimeout);
 		if (!is_resource($this->socket))
 		{
 			$this->intCode = $errno;
@@ -842,7 +849,7 @@ class RequestExtended
 			}
 			// perform CONNECT with the proxy if https
 			if ($this->arrUri['scheme'] == 'https') {
-				try 
+				try
 				{
 					$request = sprintf('CONNECT %s:%s HTTP/1.1%sHost: %s%s', $host, $port, "\r\n", $this->arrProxy['proxyhost'], "\r\n");
 					if (isset($strUserAgent['User-Agent']))
@@ -874,9 +881,9 @@ class RequestExtended
 					if (substr($response, 9, 3) != 200) {
 						throw new Exception("Unable to connect to HTTPS proxy. Server response: " . $response);
 					}
-					// If all is good, switch socket to secure mode. We have to fall back through the different modes 
-					$success = false; 
-					foreach(array(STREAM_CRYPTO_METHOD_TLS_CLIENT, STREAM_CRYPTO_METHOD_SSLv3_CLIENT, 
+					// If all is good, switch socket to secure mode. We have to fall back through the different modes
+					$success = false;
+					foreach(array(STREAM_CRYPTO_METHOD_TLS_CLIENT, STREAM_CRYPTO_METHOD_SSLv3_CLIENT,
 								  STREAM_CRYPTO_METHOD_SSLv23_CLIENT,STREAM_CRYPTO_METHOD_SSLv2_CLIENT) as $mode)
 					{
 						if ($success=stream_socket_enable_crypto($this->socket, true, $mode)) break;
@@ -1005,7 +1012,7 @@ class RequestExtended
 				break;
 			case 'Digest':
 					// NOTE: currently only qop=auth is implemented but this should work with the major of the servers.
-					
+
 					//random content for client nonce, will have to buffer if authentication session is going to be persistent.
 					$cnonce=uniqid();
 					$nc='00000001';
@@ -1072,7 +1079,7 @@ class RequestExtended
 		$request .= implode("\r\n", $this->compileHeaders());
 		$request .= "\r\n\r\n";
 
-		// A message-body MUST NOT be included in a request if the specification of the request 
+		// A message-body MUST NOT be included in a request if the specification of the request
 		// method (section 5.1.1) does not allow sending an entity-body in requests.
 		// TODO: determine if the request does allow a message body and clean it if it does not (or rather return false immediately?).
 		if (strlen($this->strData))
@@ -1081,7 +1088,7 @@ class RequestExtended
 		}
 		$this->strRequest=$request;
 	}
-	
+
 	/**
 	 * parse a cookie header line and add the cookie to the list.
 	 * @param string
@@ -1108,7 +1115,7 @@ class RequestExtended
 			return;
 		$this->arrCookies[$cdata['name']]=$cdata;
 	}
-	
+
 	/**
 	 * matches the cookie against the current request parameters and returns the result.
 	 * @param array
@@ -1129,7 +1136,7 @@ class RequestExtended
 		// cookie is valid
 		return true;
 	}
-	
+
 	/**
 	 * compile cookies and return as array of strings.
 	 * @return array
@@ -1167,7 +1174,7 @@ class RequestExtended
 */
 		return $ret;
 	}
-	
+
 	/**
 	 * compile headers and return as array of strings.
 	 * @return array
@@ -1188,12 +1195,12 @@ class RequestExtended
 			$encodings[] = $name . ';q=' . (!$enabled ? '0' : $enabled);
 		}
 		$headers['Accept-Encoding'] = 'Accept-Encoding: ' . join(',', $encodings);
-		
+
 		if(strlen($this->strAccept))
 		{
 			$headers['Accept'] = 'Accept: ' . $this->strAccept;
 		}
-		
+
 		if($this->strData)
 		{
 			$headers['Content-Length'] = 'Content-Length: ' . strlen($this->strData);
@@ -1212,14 +1219,14 @@ class RequestExtended
 		{
 			$headers[$header] = $header . ': ' . $value;
 		}
-		
+
 		// add cookies.
 		foreach ($this->compileCookies() as $cookie)
 			$headers[] = $cookie;
 		return $headers;
 	}
 
-	
+
 	/**
 	 * parse a header line.
 	 * @param string
@@ -1252,7 +1259,7 @@ class RequestExtended
 		$cookies=array();
 		while (($line = trim(array_shift($split))) != false)
 		{
-			// Headers can wrap over multiple lines. Therefore we collect everything together 
+			// Headers can wrap over multiple lines. Therefore we collect everything together
 			// until the next field begins.
 			// check if this is a new header field.
 			if(preg_match('#^[a-zA-Z0-9\-]+:#U', $line))
@@ -1274,7 +1281,7 @@ class RequestExtended
 			$this->decodeResponse($this->arrResponseHeaders['Transfer-Encoding']);
 		if(array_key_exists('Content-Encoding', $this->arrResponseHeaders) && $this->arrResponseHeaders['Content-Encoding'])
 			$this->decodeResponse($this->arrResponseHeaders['Content-Encoding']);
-		
+
 		$this->intCode = $code;
 		// TODO: is it really wise to fallback to the next generic error message?
 		if (!isset($responses[$code]))
@@ -1342,7 +1349,7 @@ class RequestExtended
 	 */
 	public function send($strUrl, $strData=false, $strMethod=false)
 	{
-		// A message-body MUST NOT be included in a request if the specification of the request 
+		// A message-body MUST NOT be included in a request if the specification of the request
 		// method (section 5.1.1) does not allow sending an entity-body in requests.
 		// TODO: determine if the request does allow a message body and clean it if it does not (or rather return false immediately?).
 		if ($strData)
@@ -1399,7 +1406,7 @@ class RequestExtended
 		} while($again);
 		return !$this->hasError();
 	}
-	
+
 	/**
 	 * Perform an HTTP GET request (url encoded form data).
 	 * @param string
@@ -1440,7 +1447,7 @@ class RequestExtended
 		$urlEncodedData=array();
 		foreach($arrData as $key=>$value)
 			$urlEncodedData[] = $key . '=' . urlencode($value);
-		
+
 		return $this->send($strUrl, join('&', $urlEncodedData), 'POST');
 	}
 

@@ -4,7 +4,7 @@
  * PHP version 5
  * @copyright	Christian Schiffler <c.schiffler@cyberspectrum.de>
  * @package		RequestExtended
- * @license		LGPL 
+ * @license		LGPL
  * @filesource
  */
 
@@ -21,7 +21,7 @@ if(!defined('CRLF'))
  */
 class MultipartFormdata
 {
-	
+
 	/**
 	 * The boundary to use for form data.
 	 */
@@ -39,12 +39,12 @@ class MultipartFormdata
 	{
 		$this->boundary = uniqid();
 	}
-	
+
 	public function setField($name, $value)
 	{
 		$this->fields[$name]=array('value' => $value);
 	}
-	
+
 	public function setFileField($name, $filename, $contentType='', $encoding='binary')
 	{
 		if(!file_exists($filename))
@@ -52,10 +52,10 @@ class MultipartFormdata
 		$this->fields[$name]=array('value' => 'file', 'filename' => $filename, 'contentType' => $contentType, 'encoding' => $encoding);
 		return true;
 	}
-	
+
 	public function getContentTypeHeader($nested=false)
 	{
-		return 'multipart/' . ($nested ? 'mixed' : 'form-data'). ', boundary=' . $this->boundary;
+		return 'multipart/' . ($nested ? 'mixed' : 'form-data'). '; boundary=' . $this->boundary;
 	}
 
 	public function compile($nested=false)
@@ -79,10 +79,10 @@ class MultipartFormdata
 				//$ret .= 'Content-type: ' . $data['value']->getContentTypeHeader($this->boundary) . CRLF
 				//$df .= CRLF;
 				$df .= $data['value']->compile($this->boundary);
-			} 
+			}
 			else if (isset($data['filename']))
 			{
-				// TODO: is there a better approach? 
+				// TODO: is there a better approach?
 				// like storing everything to a tempfile before? Might run out of RAM this way.
 				// add the file now.
 				if(!$nested)
