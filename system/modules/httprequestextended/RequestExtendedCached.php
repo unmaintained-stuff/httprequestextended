@@ -8,10 +8,6 @@
  * @filesource
  */
 
-namespace HttpRequestExtended;
-
-use HttpRequestExtended\RequestExtended as RequestExtended;
-
 /**
  * Class Request11
  *
@@ -20,7 +16,7 @@ use HttpRequestExtended\RequestExtended as RequestExtended;
  * @author     Christian Schiffler <c.schiffler@cyberspectrum.de>
  * @package    Library
  */
-class RequestExtendedCached extends RequestExtended
+class RequestExtendedCached extends \RequestExtended
 {
 	protected $Database = NULL;
 
@@ -33,7 +29,7 @@ class RequestExtendedCached extends RequestExtended
 	 */
 	public function __construct($intCacheTime=3600)
 	{
-		$this->Database=Database::getInstance();
+		$this->Database=\Database::getInstance();
 		$this->intCacheTime = $intCacheTime;
 		parent::__construct();
 	}

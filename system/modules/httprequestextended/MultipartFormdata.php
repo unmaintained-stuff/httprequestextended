@@ -8,8 +8,6 @@
  * @filesource
  */
 
-namespace HttpRequestExtended;
-
 if(!defined('CRLF'))
 	define('CRLF', "\r\n");
 
@@ -74,7 +72,7 @@ class MultipartFormdata
 				$first=false;
 			$df='';
 			// nested MultipartFormdata?
-			if($data['value'] instanceof MultipartFormdata)
+			if($data['value'] instanceof \MultipartFormdata)
 			{
 				// TODO: is there a better approach to merge sub data in? I guess this way we can get collisions but the commented approach did not work out at all.
 				//$df .= 'Content-Disposition: attachment; name="' . $name . '"' . CRLF;

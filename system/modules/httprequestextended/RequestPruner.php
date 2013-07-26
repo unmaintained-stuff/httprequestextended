@@ -8,8 +8,6 @@
  * @filesource
  */
 
-namespace HttpRequestExtended;
-
 /**
  * Class RequestPruner
  *
@@ -18,7 +16,7 @@ namespace HttpRequestExtended;
  * @package		Controller
  *
  */
-class RequestPruner extends System
+class RequestPruner extends \System
 {
 	public function prune()
 	{

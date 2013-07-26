@@ -16,8 +16,8 @@
  */
 ClassLoader::addClasses(array
 (
-	'RequestExtendedCached' => 'system/modules/httprequestextended/RequestExtendedCached.php',
 	'MultipartFormdata'     => 'system/modules/httprequestextended/MultipartFormdata.php',
 	'RequestExtended'       => 'system/modules/httprequestextended/RequestExtended.php',
+	'RequestExtendedCached' => 'system/modules/httprequestextended/RequestExtendedCached.php',
 	'RequestPruner'         => 'system/modules/httprequestextended/RequestPruner.php',
 ));

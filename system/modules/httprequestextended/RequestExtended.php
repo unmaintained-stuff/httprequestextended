@@ -8,11 +8,6 @@
  * @filesource
  */
 
-namespace HttpRequestExtended;
-
-use HttpRequestExtended\MultipartFormdata as MultipartFormdata;
-use \Exception as Exception;
-
 /**
  * Class RequestExtended
  *
@@ -331,7 +326,7 @@ class RequestExtended
 	 * Set an object property
 	 * @param string
 	 * @param mixed
-	 * @throws Exception
+	 * @throws \RuntimeException
 	 */
 	public function __set($strKey, $varValue)
 	{
@@ -410,7 +405,7 @@ class RequestExtended
 				break;
 
 			default:
-				throw new Exception(sprintf('Invalid argument "%s"', $strKey));
+				throw new \RuntimeException(sprintf('Invalid argument "%s"', $strKey));
 				break;
 		}
 	}
@@ -797,19 +792,16 @@ class RequestExtended
 
 	protected function openSocket($host, $port)
 	{
-		// idna encode the hostname...
-		if (!class_exists('idna_convert', false))
+		// idna, encode the hostname.
+		if(version_compare(VERSION, '3.0', '<'))
 		{
-			if(version_compare(VERSION, '3.0', '<'))
-			{
-				require_once(TL_ROOT . '/plugins/idna/idna_convert.class.php');
-			}
-			else
-			{
-				require_once(TL_ROOT . '/system/modules/core/library/Contao/Idna.php');
-			}
+			require_once(TL_ROOT . '/plugins/idna/idna_convert.class.php');
+			$objIdn = new idna_convert();
 		}
-		$objIdn = new idna_convert();
+		else
+		{
+			$objIdn = new Contao\Idna();
+		}
 
 		$this->socket = @fsockopen($objIdn->encode($host), $port, $errno, $errstr, $this->intTimeout);
 		if (!is_resource($this->socket))
@@ -875,7 +867,7 @@ class RequestExtended
 					// Send the request
 					if (!@fwrite($this->socket, $request))
 					{
-						throw new Exception("Error writing request to proxy server");
+						throw new \RuntimeException("Error writing request to proxy server");
 					}
 					// Read response headers only
 					$response = '';
@@ -891,7 +883,7 @@ class RequestExtended
 					}
 					// Check that the response from the proxy is 200
 					if (substr($response, 9, 3) != 200) {
-						throw new Exception("Unable to connect to HTTPS proxy. Server response: " . $response);
+						throw new \RuntimeException("Unable to connect to HTTPS proxy. Server response: " . $response);
 					}
 					// If all is good, switch socket to secure mode. We have to fall back through the different modes
 					$success = false;
@@ -902,10 +894,10 @@ class RequestExtended
 					}
 					if (!$success)
 					{
-						throw new Exception("Unable to connect to HTTPS server through proxy: could not negotiate secure connection.");
+						throw new \RuntimeException("Unable to connect to HTTPS server through proxy: could not negotiate secure connection.");
 					}
 				}
-				catch (Exception $e)
+				catch (\RuntimeException $e)
 				{
 					// Close socket
 					$this->disconnect();
@@ -1056,7 +1048,7 @@ class RequestExtended
 					$this->arrHeaders['Authorization'] = 'Digest '.implode(',',$response);
 				break;
 			default:
-				throw new Exception('unknown Auth method required.');
+				throw new \RuntimeException('unknown Auth method required.');
 		}
 	}
 
@@ -1466,15 +1458,15 @@ class RequestExtended
 	/**
 	 * Perform an HTTP POST request (url encoded form data).
 	 * @param string
-	 * @param MultipartFormdata
+	 * @param \MultipartFormdata
 	 */
 	public function postMultipartFormdata($strUrl, $objData=NULL)
 	{
-		if(!($objData instanceof MultipartFormdata))
+		if(!($objData instanceof \MultipartFormdata))
 		{
 			if(is_array($objData))
 			{
-				$tmp=new MultipartFormdata();
+				$tmp=new \MultipartFormdata();
 				foreach($objData as $key=>$value)
 					$tmp->setField($key, $value);
 				$objData=$tmp;
