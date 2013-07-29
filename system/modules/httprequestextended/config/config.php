@@ -1,4 +1,4 @@
-<?php if (!defined('TL_ROOT')) die('You can not access this file directly!');
+<?php
 
 /**
  * PHP version 5
@@ -16,4 +16,3 @@ $GLOBALS['TL_CACHE']['requests']='tl_requestcache';
  */
 $GLOBALS['TL_CRON']['daily'][]  = array('RequestPruner', 'prune');
 
-?>

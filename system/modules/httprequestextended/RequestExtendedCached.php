@@ -125,5 +125,3 @@ class RequestExtendedCached extends \RequestExtended
 		}
 	}
 }
-
-?>

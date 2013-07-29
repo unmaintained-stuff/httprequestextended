@@ -24,5 +24,3 @@ class RequestPruner extends \System
 		$this->Database->prepare('DELETE FROM tl_requestcache WHERE tstamp<?')->execute(time());
 	}
 };
-
-?>

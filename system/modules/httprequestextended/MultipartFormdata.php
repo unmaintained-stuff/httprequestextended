@@ -9,7 +9,9 @@
  */
 
 if(!defined('CRLF'))
+{
 	define('CRLF', "\r\n");
+}
 
 /**
  * Class MultipartFormdata
@@ -21,7 +23,6 @@ if(!defined('CRLF'))
  */
 class MultipartFormdata
 {
-
 	/**
 	 * The boundary to use for form data.
 	 */
@@ -61,6 +62,8 @@ class MultipartFormdata
 	public function compile($nested=false)
 	{
 		$boundaryline = '--' . (!$nested? $this->boundary : $nested);
+
+		$ret = '';
 		if(!$nested)
 			$ret = $boundaryline . CRLF;
 		$first=true;
@@ -111,5 +114,3 @@ class MultipartFormdata
 		return $ret;
 	}
 }
-
-?>

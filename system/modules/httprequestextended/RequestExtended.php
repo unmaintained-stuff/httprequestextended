@@ -1481,5 +1481,3 @@ class RequestExtended
 		return $this->send($strUrl, $objData->compile(), 'POST');
 	}
 }
-
-?>
