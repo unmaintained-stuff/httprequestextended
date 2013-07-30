@@ -618,7 +618,7 @@ class RequestExtended
 	 * @copyright 2009 Jakub Vrana
 	 * @license http://www.apache.org/licenses/LICENSE-2.0 Apache License, Version 2.0
 	 *
-	 * @param string compressed binary data
+	 * @param string $strBinary Compressed binary data.
 	 *
 	 * @return string original data
 	 */
@@ -650,6 +650,7 @@ class RequestExtended
 		// decompression
 		$dictionary = range("\0", "\xFF");
 		$return = "";
+		$word = null;
 		foreach ($codes as $i => $code) {
 			$element = $dictionary[$code];
 			if (!isset($element)) {
@@ -672,7 +673,7 @@ class RequestExtended
 	 * @copyright 2009 Jakub Vrana
 	 * @license http://www.apache.org/licenses/LICENSE-2.0 Apache License, Version 2.0
 	 *
-	 * @param string data to compress
+	 * @param string $strData The data to compress.
 	 *
 	 * @return string binary data
 	 */
@@ -740,6 +741,7 @@ class RequestExtended
 	{
 		$gzip_contents = gzcompress($strData, 1);
 		return $gzip_contents;
+
 		$gzip_size = strlen($strData);
 		$gzip_crc = crc32($strData);
 		$gzip_contents = gzcompress($strData, 9);
@@ -756,8 +758,12 @@ class RequestExtended
 
 	/**
 	 * encode the given data using the given algorithm.
-	 * @param ref-string (will get altered)
-	 * @param string
+	 *
+	 * @param ref-string &$strData   The data to encode (will get altered).
+	 *
+	 * @param string     $algorithm  The algorithm to use (chunked, gzip, deflate, compress).
+	 *
+	 * @return bool
 	 */
 	protected function encodeData(&$strData, $algorithm)
 	{
@@ -800,7 +806,7 @@ class RequestExtended
 		}
 		else
 		{
-			$objIdn = new Contao\Idna();
+			$objIdn = new \Contao\Idna();
 		}
 
 		$this->socket = @fsockopen($objIdn->encode($host), $port, $errno, $errstr, $this->intTimeout);
@@ -937,7 +943,7 @@ class RequestExtended
 	protected function readFromSocket(&$varData)
 	{
 		$arrInfo = stream_get_meta_data($this->socket);
-		if (!(feof($this->socket) || ($info['timed_out'] === true)))
+		if (!(feof($this->socket) || ($arrInfo['timed_out'] === true)))
 		{
 			$varData = fread($this->socket, 1024);
 			return ($varData !== false);
@@ -974,7 +980,6 @@ class RequestExtended
 				{
 					$strResponseHeaders = substr($strData, 0, $intPos);
 					$strResponse = substr($strData, $intPos + 4);
-					$strData = '';
 					break;
 				}
 			}
@@ -1149,9 +1154,10 @@ class RequestExtended
 	{
 		if(!count($this->arrCookies))
 			return array();
-		$ret=array('Cookie: ');
-		$max=count($this->arrCookies);
-		foreach($this->arrCookies as $name=>$cookie)
+		$ret = array('Cookie: ');
+		$max = count($this->arrCookies);
+		$i   = 0;
+		foreach($this->arrCookies as $cookie)
 		{
 			if(!$this->checkCookie($cookie))
 			{
@@ -1238,13 +1244,10 @@ class RequestExtended
 	 */
 	protected function processHeaderLine($strHeader, $value)
 	{
-		if($header == 'Set-Cookie')
+		if($strHeader == 'Set-Cookie')
 		{
 			$this->parseCookie($value);
 		} else {
-			// TODO: keep this for a grace period until the usage of getResponseHeader() is widely adopted. See issue #2978
-			$this->arrResponseHeaders[$strHeader] = trim($value);
-
 			$this->arrResponseHeaders[strtolower($strHeader)] = trim($value);
 		}
 	}
@@ -1259,8 +1262,9 @@ class RequestExtended
 		$split = preg_split("/\r\n|\n|\r/", $this->strResponseHeaders);
 		$this->arrResponseHeaders = array();
 		list(, $code, $text) = explode(' ', trim(array_shift($split)), 3);
-		$header='';
-		$cookies=array();
+		$header = '';
+		$value  = '';
+
 		while (($line = trim(array_shift($split))) != false)
 		{
 			// Headers can wrap over multiple lines. Therefore we collect everything together
@@ -1281,23 +1285,23 @@ class RequestExtended
 		{
 			$this->processHeaderLine($header, trim($value));
 		}
-		if(array_key_exists('Transfer-Encoding', $this->arrResponseHeaders) && $this->arrResponseHeaders['Transfer-Encoding'])
-			$this->decodeResponse($this->arrResponseHeaders['Transfer-Encoding']);
-		if(array_key_exists('Content-Encoding', $this->arrResponseHeaders) && $this->arrResponseHeaders['Content-Encoding'])
-			$this->decodeResponse($this->arrResponseHeaders['Content-Encoding']);
+		if($this->getResponseHeader('Transfer-Encoding'))
+			$this->decodeResponse($this->getResponseHeader('Transfer-Encoding'));
+		if($this->getResponseHeader('Content-Encoding'))
+			$this->decodeResponse($this->getResponseHeader('Content-Encoding'));
 
 		$this->intCode = $code;
 		// TODO: is it really wise to fallback to the next generic error message?
 		if (!isset($responses[$code]))
 		{
-			$code = floor($code / 100) * 100;
+			$code = intval(floor($code / 100) * 100);
 		}
 
-		if((intval($this->intCode)==401) && array_key_exists('WWW-Authenticate', $this->arrResponseHeaders) && $this->arrResponseHeaders['WWW-Authenticate'])
+		if((intval($this->intCode)==401) && $this->getResponseHeader('WWW-Authenticate'))
 		{
 			// HTTP auth requested.
 			$authdata=array();
-			foreach(explode(',',$this->arrResponseHeaders['WWW-Authenticate']) as $v)
+			foreach(explode(',',$this->getResponseHeader('WWW-Authenticate')) as $v)
 			{
 				$v=array_map('trim', explode('=', $v,2));
 				$authdata[$v[0]]=($v[1][0]=='"')?substr($v[1],1,-1):$v[1];
@@ -1321,7 +1325,7 @@ class RequestExtended
 				$this->digestAuth=$authdata;
 			}
 		}
-		if (!in_array(intval($code), array(200, 304)))
+		if (!in_array($code, array(200, 304)))
 		{
 			$this->strError = strlen($text) ? $text : $this->responses[$code];
 		}
@@ -1347,9 +1351,14 @@ class RequestExtended
 
 	/**
 	 * Perform an HTTP request (handle GET, POST, PUT and any other HTTP request)
-	 * @param string
-	 * @param string
-	 * @param string
+	 *
+	 * @param string $strUrl    The URL to retrieve.
+	 *
+	 * @param mixed  $strData   The data to submit (if any, default to false).
+	 *
+	 * @param bool   $strMethod The method to use.
+	 *
+	 * @return bool
 	 */
 	public function send($strUrl, $strData=false, $strMethod=false)
 	{
@@ -1379,7 +1388,9 @@ class RequestExtended
 						$this->performRequest();
 						// login did not work out, most likely wrong user/pass, break now.
 						if($this->intCode==401)
+						{
 							$again=false;
+						}
 					}
 					break;
 				case 301:
@@ -1388,7 +1399,7 @@ class RequestExtended
 					if($this->followRedirects)
 					{
 						// redirect..
-						if(($newurl=@parse_url($this->arrResponseHeaders['Location']))!==false)
+						if(($newurl=@parse_url($this->getResponseHeader('Location')))!==false)
 						{
 							if($newurl['schema'])
 							{
@@ -1413,8 +1424,12 @@ class RequestExtended
 
 	/**
 	 * Perform an HTTP GET request (url encoded form data).
+	 *
 	 * @param string
+	 *
 	 * @param array
+	 *
+	 * @return bool
 	 */
 	public function getUrlEncoded($strUrl, $arrData=array())
 	{
@@ -1442,8 +1457,12 @@ class RequestExtended
 
 	/**
 	 * Perform an HTTP POST request (url encoded form data).
+	 *
 	 * @param string
+	 *
 	 * @param array
+	 *
+	 * @return bool
 	 */
 	public function postUrlEncoded($strUrl, $arrData=array())
 	{
@@ -1457,8 +1476,12 @@ class RequestExtended
 
 	/**
 	 * Perform an HTTP POST request (url encoded form data).
+	 *
 	 * @param string
+	 *
 	 * @param \MultipartFormdata
+	 *
+	 * @return bool
 	 */
 	public function postMultipartFormdata($strUrl, $objData=NULL)
 	{
@@ -1477,7 +1500,7 @@ class RequestExtended
 			}
 		}
 		$this->strDataMime = $objData->getContentTypeHeader();
-		$data= $objData->compile();
+
 		return $this->send($strUrl, $objData->compile(), 'POST');
 	}
 }
