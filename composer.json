@@ -1,0 +1,43 @@
+{
+	"name":"discordier/httprequestextended",
+	"description":"fsockopen based HTTP client for Contao",
+	"keywords":["http", "php", "contao"],
+	"type":"contao-module",
+	"license":"LGPL-3.0+",
+	"authors": [
+		{
+			"name":"Christian Schiffler",
+			"email":"c.schiffler@cyberspectrum.de",
+			"homepage":"http://www.cyberspectrum.de",
+			"role":"Developer"
+		},
+		{
+			"name":"Stefan Heimes",
+			"email":"stefan_heimes@hotmail.com",
+			"role":"Developer"
+		}
+	],
+	"require": {
+		"php":">=5.3",
+		"contao/core":">=2.11,<4.0"
+	},
+	"require-dev": {
+		"contao/core":"dev-master"
+	},
+	"conflict": {
+		"contao/core": "3.0.*"
+	},
+	"autoload": {
+		"classmap": ["system"]
+	},
+	"extra":{
+		"contao": {
+			"symlinks": {
+				"system/modules/httprequestextended": "system/modules/httprequestextended"
+			}
+		},
+		"branch-alias": {
+			"dev-master": "1.1.x-dev"
+		}
+	}
+}
