@@ -27,6 +27,9 @@
 	"conflict": {
 		"contao/core": "3.0.*"
 	},
+	"replace": {
+		"contao-legacy/httprequestextended": "*"
+	},
 	"autoload": {
 		"classmap": ["system"]
 	},
