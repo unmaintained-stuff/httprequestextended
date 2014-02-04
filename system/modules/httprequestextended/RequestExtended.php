@@ -1297,7 +1297,7 @@ class RequestExtended
 			$code = intval(floor($code / 100) * 100);
 		}
 
-		if((intval($this->intCode)==401) && $this->getResponseHeader('WWW-Authenticate'))
+		if((intval($this->intCode)==401) && strlen($this->strUsername) && $this->getResponseHeader('WWW-Authenticate'))
 		{
 			// HTTP auth requested.
 			$authdata=array();
