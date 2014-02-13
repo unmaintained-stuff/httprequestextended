@@ -1391,6 +1391,8 @@ class RequestExtended
 						{
 							$again=false;
 						}
+					} else {
+						$again=false;
 					}
 					break;
 				case 301:
