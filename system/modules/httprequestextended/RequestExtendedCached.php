@@ -4,7 +4,7 @@
  * PHP version 5
  * @copyright	Christian Schiffler <c.schiffler@cyberspectrum.de>
  * @package		RequestExtended
- * @license		LGPL 
+ * @license		LGPL
  * @filesource
  */
 
@@ -84,7 +84,7 @@ class RequestExtendedCached extends \RequestExtended
 					'hashkey'=> $this->getCacheKey(),
 					'tstamp' => time()+$this->intCacheTime,
 					'data' => $this->strResponse,
-					'header' => $this->strHeaders
+					'header' => $this->strResponseHeaders
 					);
 		$this->Database->prepare('INSERT INTO tl_requestcache %s')->set($data)->execute();
 	}
@@ -121,7 +121,7 @@ class RequestExtendedCached extends \RequestExtended
 		} else {
 			$this->strResponse = $objResponse->data;
 			$this->strResponseHeaders = $objResponse->header;
-			$this->intCode=200;
+			$this->parseHeader();
 		}
 	}
 }
